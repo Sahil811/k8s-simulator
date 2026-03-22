@@ -9,16 +9,22 @@ export function TimeTravelBar() {
   const currentIndex = isLive ? history.length - 1 : historyIndex;
 
   return (
-    <div style={{
-      position: 'fixed', bottom: 30, left: '50%', transform: 'translateX(-50%)',
-      background: 'var(--bg-elevated)', border: `1px solid ${isLive ? 'var(--border-default)' : 'var(--k8s-yellow)'}`,
-      borderRadius: 'var(--radius-lg)', padding: '12px 24px',
-      display: 'flex', alignItems: 'center', gap: 20, zIndex: 9999,
-      boxShadow: isLive ? '0 8px 32px rgba(0,0,0,0.4)' : '0 0 20px rgba(234, 179, 8, 0.2)',
-      minWidth: 500,
-      backdropFilter: 'blur(10px)',
-      animation: 'fadeInUp 0.3s ease'
-    }}>
+    <div 
+      style={{
+        position: 'fixed', bottom: 20, right: 340, left: 'auto', transform: 'none',
+        background: 'var(--bg-elevated)', border: `1px solid ${isLive ? 'var(--border-default)' : 'var(--k8s-yellow)'}`,
+        borderRadius: 'var(--radius-lg)', padding: '10px 16px',
+        display: 'flex', alignItems: 'center', gap: 16, zIndex: 9999,
+        boxShadow: isLive ? '0 4px 24px rgba(0,0,0,0.6)' : '0 0 20px rgba(234, 179, 8, 0.2)',
+        minWidth: 350,
+        backdropFilter: 'blur(10px)',
+        animation: 'fadeInUp 0.3s ease',
+        opacity: isLive ? 0.25 : 1,
+        transition: 'all 0.2s ease',
+      }}
+      onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+      onMouseLeave={e => e.currentTarget.style.opacity = isLive ? '0.25' : '1'}
+    >
       <div style={{ display: 'flex', alignItems: 'center' }}>
         <button 
           className={`btn ${isLive ? '' : 'btn-primary'}`}
