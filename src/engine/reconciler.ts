@@ -1,4 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
+import { produce } from 'immer';
 import type { ClusterState, Pod, K8sNode, ReplicaSet, ExplanationEntry } from '../types/k8s';
 
 export type { ClusterState };
@@ -38,6 +39,8 @@ export function createInitialClusterState(): ClusterState {
     pods: [],
     replicaSets: [],
     deployments: [],
+    statefulSets: [],
+    daemonSets: [],
     services: [],
     ingresses: [],
     pvs: [
@@ -124,41 +127,100 @@ function podMatchesSelector(pod: Pod, selector: Record<string, string>) {
   return Object.entries(selector).every(([k, v]) => pod.labels[k] === v);
 }
 
-function canScheduleOnNode(pod: Pod, node: K8sNode, state: ClusterState) {
-  if (node.status !== 'Ready') return false;
-  // Check taints / tolerations
-  for (const taint of node.taints) {
-    if (taint.effect === 'NoSchedule' || taint.effect === 'NoExecute') {
-      const tolerated = pod.tolerations.some(t => {
-        if (t.operator === 'Exists') return t.key === undefined || t.key === taint.key;
-        return t.key === taint.key && t.value === taint.value;
-      });
-      if (!tolerated) return false;
-    }
-  }
-  // Node selector
-  if (pod.nodeSelector) {
-    for (const [k, v] of Object.entries(pod.nodeSelector)) {
-      if (node.labels[k] !== v) return false;
-    }
-  }
-  // Resource fit
-  const usage = getNodeUsage(state, node.id);
-  const fits = (usage.cpu + pod.resources.cpu) <= node.allocatable.cpu
-    && (usage.memory + pod.resources.memory) <= node.allocatable.memory;
-  return fits;
+function podSpreadScore(pod: Pod, node: K8sNode, state: ClusterState): number {
+  if (!pod.ownerRef) return 1.0;
+  
+  // Count how many pods of the SAME owner are on THIS node vs other nodes
+  const siblingPods = state.pods.filter(p => 
+    p.ownerRef?.uid === pod.ownerRef?.uid && p.phase !== 'Terminating' && p.nodeName
+  );
+  
+  if (siblingPods.length === 0) return 1.0;
+  
+  const podsOnThisNode = siblingPods.filter(p => p.nodeName === node.id).length;
+  // If all siblings are on this node, score is 0. If 0 siblings on this node, score is 1.
+  return Math.max(0, 1.0 - (podsOnThisNode / siblingPods.length));
 }
 
-function selectNode(pod: Pod, state: ClusterState): K8sNode | null {
-  const candidates = state.nodes.filter(n => canScheduleOnNode(pod, n, state));
-  if (!candidates.length) return null;
-  // Least-loaded wins
-  candidates.sort((a, b) => {
-    const ua = getNodeUsage(state, a.id);
-    const ub = getNodeUsage(state, b.id);
-    return (ua.cpu / a.allocatable.cpu) - (ub.cpu / b.allocatable.cpu);
+function selectNode(pod: Pod, state: ClusterState): { node: K8sNode | null, reason?: string } {
+  const failureReasons: Record<string, number> = {};
+  const candidates: K8sNode[] = [];
+
+  for (const node of state.nodes) {
+    if (node.status !== 'Ready') {
+      failureReasons['node(s) were not ready'] = (failureReasons['node(s) were not ready'] || 0) + 1;
+      continue;
+    }
+    
+    // Check taints
+    let taintFailed = false;
+    for (const taint of node.taints) {
+      if (taint.effect === 'NoSchedule' || taint.effect === 'NoExecute') {
+        const tolerated = pod.tolerations.some(t => {
+          if (t.operator === 'Exists') return t.key === undefined || t.key === taint.key;
+          return t.key === taint.key && t.value === taint.value;
+        });
+        if (!tolerated) {
+          taintFailed = true;
+          break;
+        }
+      }
+    }
+    if (taintFailed) {
+      failureReasons["node(s) had taint that the pod didn't tolerate"] = (failureReasons["node(s) had taint that the pod didn't tolerate"] || 0) + 1;
+      continue;
+    }
+
+    // Node selector
+    let selectorFailed = false;
+    if (pod.nodeSelector) {
+      for (const [k, v] of Object.entries(pod.nodeSelector)) {
+        if (node.labels[k] !== v) {
+          selectorFailed = true;
+          break;
+        }
+      }
+    }
+    if (selectorFailed) {
+      failureReasons["node(s) didn't match Pod's node affinity/selector"] = (failureReasons["node(s) didn't match Pod's node affinity/selector"] || 0) + 1;
+      continue;
+    }
+
+    // Resource fit
+    const usage = getNodeUsage(state, node.id);
+    if ((usage.cpu + pod.resources.cpu) > node.allocatable.cpu) {
+      failureReasons["Insufficient cpu"] = (failureReasons["Insufficient cpu"] || 0) + 1;
+      continue;
+    }
+    if ((usage.memory + pod.resources.memory) > node.allocatable.memory) {
+      failureReasons["Insufficient memory"] = (failureReasons["Insufficient memory"] || 0) + 1;
+      continue;
+    }
+
+    candidates.push(node);
+  }
+
+  // If no node passes filter
+  if (candidates.length === 0) {
+    const total = state.nodes.length;
+    const parts = Object.entries(failureReasons).map(([msg, count]) => `${count} ${msg}`);
+    return { node: null, reason: `0/${total} nodes are available: ${parts.join(', ')}.` };
+  }
+
+  // SCORE
+  const scored = candidates.map(node => {
+    const usage = getNodeUsage(state, node.id);
+    const cpuHeadroom = (node.allocatable.cpu - usage.cpu) / node.allocatable.cpu; // 0.0 to 1.0
+    const memHeadroom = (node.allocatable.memory - usage.memory) / node.allocatable.memory; // 0.0 to 1.0
+    const spreadScore = podSpreadScore(pod, node, state);
+
+    const finalScore = (cpuHeadroom * 0.4) + (memHeadroom * 0.4) + (spreadScore * 0.2);
+    return { node, score: finalScore };
   });
-  return candidates[0];
+
+  // BIND (highest scoring)
+  scored.sort((a, b) => b.score - a.score);
+  return { node: scored[0].node };
 }
 
 // ===== CONTROLLERS =====
@@ -305,10 +367,7 @@ function reconcileReplicaSets(state: ClusterState, explanations: ExplanationEntr
         .slice(0, -diff);
       for (const pod of toDelete) {
         pod.phase = 'Terminating';
-        setTimeout(() => {
-          const idx = state.pods.indexOf(pod);
-          if (idx !== -1) state.pods.splice(idx, 1);
-        }, 5000);
+        pod.deletionTimestamp = state.time;
         emitEvent(state, 'Normal', 'SuccessfulDelete', `Deleted pod: ${pod.name}`,
           'ReplicaSet', rs.name, rs.namespace, 'replicaset-controller');
       }
@@ -358,37 +417,20 @@ function reconcileScheduler(state: ClusterState, explanations: ExplanationEntry[
       continue;
     }
 
-    const node = selectNode(pod, state);
+    const { node, reason } = selectNode(pod, state);
     if (!node) {
       pod.phase = 'Pending';
-      const hasResourceIssue = state.nodes.every(n => {
-        const usage = getNodeUsage(state, n.id);
-        return (usage.cpu + pod.resources.cpu) > n.allocatable.cpu
-          || (usage.memory + pod.resources.memory) > n.allocatable.memory;
-      });
-      const hasTaintIssue = state.nodes.every(n => !canScheduleOnNode(pod, n, state));
-
       if (pod._schedulingAttempts === 1 || pod._schedulingAttempts % 10 === 0) {
-        let reason = 'Unschedulable';
-        let msg = `0/${state.nodes.length} nodes are available`;
-        let why = '';
-        if (hasResourceIssue) {
-          msg += `: Insufficient cpu or memory.`;
-          why = `The pod requests ${pod.resources.cpu}m CPU and ${pod.resources.memory}Mi memory, but no node has enough free capacity. You need to either: 1) Add more nodes 2) Reduce the pod's resource requests 3) Remove other pods to free up space.`;
-        } else if (hasTaintIssue) {
-          msg += `: No nodes match pod's toleration requirements.`;
-          why = `Every node has taints that this pod does not tolerate. Taints are "repellents" on nodes. Pods must declare matching tolerations to be scheduled there. Add the appropriate tolerations to the pod spec.`;
-        }
-        emitEvent(state, 'Warning', reason, msg, 'Pod', pod.name, pod.namespace, 'default-scheduler');
-        if (why && pod._schedulingAttempts === 1) {
+        emitEvent(state, 'Warning', 'FailedScheduling', reason || 'Unschedulable', 'Pod', pod.name, pod.namespace, 'default-scheduler');
+        if (pod._schedulingAttempts === 1) {
           explanations.push({
             id: uuidv4(),
             timestamp: Date.now(),
             title: `Pod "${pod.name}" cannot be scheduled`,
-            what: msg,
+            what: reason || 'Unschedulable',
             controller: 'Scheduler',
             action: `Pod remains in Pending phase`,
-            why,
+            why: `The Schedule algorithm filtered out all nodes. Reason: ${reason}. You must adjust the pod's resources, tolerations, or node selectors to fit the constraints, or add a matching node.`,
             objectKind: 'Pod',
             objectName: pod.name,
           });
@@ -584,6 +626,248 @@ function reconcileServices(state: ClusterState) {
   }
 }
 
+function reconcileStatefulSets(state: ClusterState, explanations: ExplanationEntry[]) {
+  for (const sts of state.statefulSets) {
+    const owned = state.pods.filter(p => p.ownerRef?.name === sts.name && p.namespace === sts.namespace);
+    const active = owned.filter(p => p.phase !== 'Failed' && p.phase !== 'Succeeded' && p.phase !== 'Terminating');
+    
+    // Sort active by index
+    active.sort((a, b) => {
+      const idxA = parseInt(a.name.split('-').pop() || '0');
+      const idxB = parseInt(b.name.split('-').pop() || '0');
+      return idxA - idxB;
+    });
+
+    const isImageBad = state.badImages.includes(sts.template.spec.containers[0]?.image ?? '');
+
+    // Check if we need to scale up
+    if (active.length < sts.replicas) {
+      // Create ONE pod at a time, strictly ordered
+      let creatingOrWaiting = false;
+      for (let i = 0; i < sts.replicas; i++) {
+        const podName = `${sts.name}-${i}`;
+        const existing = state.pods.find(p => p.name === podName && p.namespace === sts.namespace && p.phase !== 'Terminating');
+        
+        if (!existing) {
+          if (creatingOrWaiting) break; // Strict ordering: wait for previous to be ready or created
+          
+          const newPod: Pod = {
+            id: uuidv4(),
+            name: podName,
+            namespace: sts.namespace,
+            labels: { ...sts.template.metadata.labels },
+            phase: 'Pending',
+            containers: sts.template.spec.containers.map(c => ({ ...c })),
+            ownerRef: { kind: 'StatefulSet', name: sts.name, uid: sts.id },
+            status: {
+              containerStatuses: sts.template.spec.containers.map(c => ({
+                name: c.name, ready: false, restartCount: 0, state: 'waiting' as const, reason: 'ContainerCreating'
+              })),
+              conditions: [],
+            },
+            resources: sts.template.spec.resources || { cpu: 100, memory: 128 },
+            tolerations: sts.template.spec.tolerations || [],
+            nodeSelector: sts.template.spec.nodeSelector,
+            createdAt: Date.now(),
+            readinessReady: false,
+            _crashCount: 0,
+            _imagePullFailing: isImageBad,
+            _schedulingAttempts: 0,
+          };
+
+          // Also create PVC if volumeClaimTemplates exist
+          if (sts.volumeClaimTemplates) {
+            for (const vct of sts.volumeClaimTemplates) {
+              const pvcName = `${vct.metadata.name}-${podName}`;
+              const exists = state.pvcs.find(p => p.name === pvcName && p.namespace === sts.namespace);
+              if (!exists) {
+                state.pvcs.push({
+                  id: uuidv4(),
+                  name: pvcName,
+                  namespace: sts.namespace,
+                  accessModes: vct.spec.accessModes as any,
+                  requestedStorage: parseInt(vct.spec.resources.requests.storage.replace(/\\D/g, '')) * 1024 || 1024,
+                  phase: 'Pending',
+                  storageClassName: 'standard',
+                  createdAt: Date.now(),
+                });
+              }
+            }
+          }
+
+          state.pods.push(newPod);
+          explanations.push({
+            id: uuidv4(),
+            timestamp: Date.now(),
+            title: `StatefulSet "${sts.name}" created Pod`,
+            what: `Created Pod "${podName}"`,
+            controller: 'StatefulSet',
+            action: `Created Pod "${podName}" in sequence`,
+            why: `StatefulSets create pods in strict sequential order. This ensures predictable identities and data attachment.`,
+            objectKind: 'StatefulSet',
+            objectName: sts.name,
+          });
+          creatingOrWaiting = true;
+          break; // only create one
+        } else if (!existing.readinessReady) {
+          creatingOrWaiting = true;
+          break; // Strict ordering: wait for it to be ready before creating next
+        }
+      }
+    } else if (active.length > sts.replicas) {
+      // Delete highest index first
+      let highestIdx = -1;
+      let podToDelete: Pod | null = null;
+      for (const p of active) {
+        const idx = parseInt(p.name.split('-').pop() || '0');
+        if (idx > highestIdx) {
+          highestIdx = idx;
+          podToDelete = p;
+        }
+      }
+      if (podToDelete && podToDelete.phase !== 'Terminating') {
+        podToDelete.phase = 'Terminating';
+        podToDelete.deletionTimestamp = state.time;
+      }
+    }
+
+    sts.status.replicas = active.length;
+    sts.status.readyReplicas = active.filter(p => p.readinessReady).length;
+    sts.status.currentReplicas = sts.status.readyReplicas;
+  }
+}
+
+function reconcileDaemonSets(state: ClusterState, explanations: ExplanationEntry[]) {
+  for (const ds of state.daemonSets) {
+    let desired = 0;
+    let ready = 0;
+    const isImageBad = state.badImages.includes(ds.template.spec.containers[0]?.image ?? '');
+
+    for (const node of state.nodes) {
+      if (node.status === 'NotReady') continue;
+
+      let selectorMatch = true;
+      if (ds.template.spec.nodeSelector) {
+        for (const [k, v] of Object.entries(ds.template.spec.nodeSelector)) {
+          if (node.labels[k] !== v) {
+            selectorMatch = false;
+            break;
+          }
+        }
+      }
+      if (!selectorMatch) continue;
+      
+      let taintMatch = true;
+      for (const taint of node.taints) {
+        if (taint.effect === 'NoSchedule' || taint.effect === 'NoExecute') {
+          const tolerated = ds.template.spec.tolerations?.some(t => {
+            if (t.operator === 'Exists') return t.key === undefined || t.key === taint.key;
+            return t.key === taint.key && t.value === taint.value;
+          });
+          if (!tolerated) {
+            taintMatch = false;
+            break;
+          }
+        }
+      }
+      if (!taintMatch) continue;
+
+      desired++;
+
+      const podName = `${ds.name}-${node.name}`;
+      const existing = state.pods.find(p => p.name === podName && p.namespace === ds.namespace && p.phase !== 'Terminating');
+
+      if (!existing) {
+        const newPod: Pod = {
+          id: uuidv4(),
+          name: podName,
+          namespace: ds.namespace,
+          labels: { ...ds.template.metadata.labels },
+          phase: 'Pending',
+          nodeName: node.id, // Bypass scheduler!
+          containers: ds.template.spec.containers.map(c => ({ ...c })),
+          ownerRef: { kind: 'DaemonSet', name: ds.name, uid: ds.id },
+          status: {
+            containerStatuses: ds.template.spec.containers.map(c => ({
+              name: c.name, ready: false, restartCount: 0, state: 'waiting' as const, reason: 'ContainerCreating'
+            })),
+            conditions: [],
+          },
+          resources: ds.template.spec.resources || { cpu: 50, memory: 64 },
+          tolerations: ds.template.spec.tolerations || [],
+          createdAt: Date.now(),
+          readinessReady: false,
+          _crashCount: 0,
+          _imagePullFailing: isImageBad,
+          _schedulingAttempts: 1, // Skip scheduler
+        };
+        state.pods.push(newPod);
+        explanations.push({
+          id: uuidv4(),
+          timestamp: Date.now(),
+          title: `DaemonSet "${ds.name}" scheduled Pod`,
+          what: `Created Pod "${podName}" on node "${node.name}"`,
+          controller: 'DaemonSet',
+          action: `Bypassed scheduler to assign Pod to Node`,
+          why: `DaemonSets ensure a copy of a pod runs on all matching nodes, useful for log aggregators or monitoring agents.`,
+          objectKind: 'DaemonSet',
+          objectName: ds.name,
+        });
+        explanations.push({
+          id: uuidv4(),
+          timestamp: Date.now(),
+          title: `DaemonSet "${ds.name}" scheduled Pod`,
+          what: `Created Pod "${podName}" on node "${node.name}"`,
+          controller: 'DaemonSet',
+          action: `Bypassed scheduler to assign Pod to Node`,
+          why: `DaemonSets ensure a copy of a pod runs on all matching nodes, useful for log aggregators or monitoring agents.`,
+          objectKind: 'DaemonSet',
+          objectName: ds.name,
+        });
+      } else if (existing.readinessReady) {
+        ready++;
+      }
+    }
+
+    const owned = state.pods.filter(p => p.ownerRef?.name === ds.name && p.namespace === ds.namespace && p.phase !== 'Terminating');
+    for (const pod of owned) {
+      if (!pod.nodeName) continue;
+      const node = state.nodes.find(n => n.id === pod.nodeName);
+      let shouldDelete = false;
+
+      if (!node) {
+        shouldDelete = true;
+      } else if (node.status === 'NotReady') {
+        shouldDelete = true;
+      } else {
+        if (ds.template.spec.nodeSelector) {
+          for (const [k, v] of Object.entries(ds.template.spec.nodeSelector)) {
+            if (node.labels[k] !== v) shouldDelete = true;
+          }
+        }
+        for (const taint of node.taints) {
+          if (taint.effect === 'NoSchedule' || taint.effect === 'NoExecute') {
+            const tolerated = ds.template.spec.tolerations?.some(t => {
+              if (t.operator === 'Exists') return t.key === undefined || t.key === taint.key;
+              return t.key === taint.key && t.value === taint.value;
+            });
+            if (!tolerated) shouldDelete = true;
+          }
+        }
+      }
+
+      if (shouldDelete) {
+        pod.phase = 'Terminating';
+        pod.deletionTimestamp = state.time;
+      }
+    }
+
+    ds.status.desiredNumberScheduled = desired;
+    ds.status.currentNumberScheduled = owned.filter(p => p.phase !== 'Terminating').length;
+    ds.status.numberReady = ready;
+  }
+}
+
 function reconcilePVCs(state: ClusterState, explanations: ExplanationEntry[]) {
   for (const pvc of state.pvcs) {
     if (pvc.phase !== 'Pending') continue;
@@ -612,12 +896,67 @@ function reconcilePVCs(state: ClusterState, explanations: ExplanationEntry[]) {
         objectKind: 'PersistentVolumeClaim',
         objectName: pvc.name,
       });
+    } else if (pvc.storageClassName === 'standard') {
+      // Dynamic provisioning for standard built-in storage class
+      const newPVId = uuidv4();
+      const pvName = `pvc-${newPVId.substring(0, 8)}`;
+      state.pvs.push({
+        id: newPVId,
+        name: pvName,
+        capacity: pvc.requestedStorage,
+        accessModes: pvc.accessModes,
+        reclaimPolicy: 'Delete', // default for dynamically provisioned
+        storageClassName: pvc.storageClassName,
+        phase: 'Bound',
+        boundTo: pvc.id,
+        createdAt: Date.now(),
+      });
+      pvc.phase = 'Bound';
+      pvc.boundTo = newPVId;
+      emitEvent(state, 'Normal', 'ProvisioningSucceeded', `Successfully provisioned volume ${pvName} for ${pvc.name}`,
+        'PersistentVolumeClaim', pvc.name, pvc.namespace, 'persistentvolume-controller');
+      explanations.push({
+        id: uuidv4(),
+        timestamp: Date.now(),
+        title: `Dynamic PV Provisioned for "${pvc.name}"`,
+        what: `A new PersistentVolume "${pvName}" was dynamically created to satisfy the claim.`,
+        controller: 'PersistentVolumeController',
+        action: `Provisioned PV and bound PVC`,
+        why: `Because the PVC requested the 'standard' StorageClass and no statically provisioned matching PV was found, the cluster's provisioner created a new PV on the fly. This happens in cloud providers like AWS (EBS), GCP (PD), or local provisioners.`,
+        objectKind: 'PersistentVolumeClaim',
+        objectName: pvc.name,
+      });
     } else {
+      // Failed to match or provision
       emitEvent(state, 'Warning', 'ProvisioningFailed',
         `storageclass "${pvc.storageClassName}": no matching PersistentVolume found`,
         'PersistentVolumeClaim', pvc.name, pvc.namespace, 'persistentvolume-controller');
     }
   }
+
+  // Handle PV reclaiming
+  for (const pv of state.pvs) {
+    if (pv.phase === 'Bound' && pv.boundTo) {
+      // Is the PVC deleted?
+      const pvc = state.pvcs.find(p => p.id === pv.boundTo);
+      if (!pvc) {
+        // PVC is gone, release PV
+        pv.phase = 'Released';
+        
+        if (pv.reclaimPolicy === 'Delete') {
+          pv.phase = 'Failed'; // Mark it dynamically so we can clean it up
+          emitEvent(state, 'Normal', 'VolumeDeleted', `Successfully deleted volume ${pv.name} (reclaim policy Delete)`,
+            'PersistentVolume', pv.name, 'default', 'persistentvolume-controller');
+        } else if (pv.reclaimPolicy === 'Retain') {
+          emitEvent(state, 'Normal', 'VolumeRetained', `Volume ${pv.name} retained (reclaim policy Retain)`,
+            'PersistentVolume', pv.name, 'default', 'persistentvolume-controller');
+        }
+      }
+    }
+  }
+
+  // Cleanup PVs marked for Delete
+  state.pvs = state.pvs.filter(pv => pv.phase !== 'Failed');
 }
 
 function reconcileHPA(state: ClusterState, explanations: ExplanationEntry[]) {
@@ -711,43 +1050,27 @@ export function reconcile(
   state: ClusterState,
   explanations: ExplanationEntry[]
 ): ClusterState {
-  const next = { ...state, tick: state.tick + 1, time: Date.now() };
-  // Deep-copy mutable arrays
-  next.nodes = state.nodes.map(n => ({ ...n, used: { ...n.used } }));
-  next.pods = state.pods.map(p => ({
-    ...p,
-    containers: p.containers.map(c => ({
-      ...c,
-      readinessProbe: c.readinessProbe ? { ...c.readinessProbe } : undefined,
-      livenessProbe: c.livenessProbe ? { ...c.livenessProbe } : undefined,
-    })),
-    status: { ...p.status, containerStatuses: p.status.containerStatuses.map(cs => ({ ...cs })) },
-    tolerations: [...p.tolerations],
-  }));
-  next.replicaSets = state.replicaSets.map(rs => ({
-    ...rs,
-    podTemplate: { ...rs.podTemplate, containers: rs.podTemplate.containers.map(c => ({ ...c })) },
-  }));
-  next.deployments = state.deployments.map(d => ({
-    ...d,
-    status: { ...d.status, conditions: [...d.status.conditions] },
-  }));
-  next.services = state.services.map(s => ({ ...s, endpoints: [...s.endpoints] }));
-  next.pvcs = state.pvcs.map(p => ({ ...p }));
-  next.pvs = state.pvs.map(p => ({ ...p }));
-  next.hpas = state.hpas.map(h => ({ ...h }));
-  next.events = [...state.events];
-  next.badImages = [...state.badImages];
-  next.crashingDeployments = [...state.crashingDeployments];
+  return produce(state, draft => {
+    draft.tick += 1;
+    draft.time = Date.now();
 
-  reconcileDeployments(next, explanations);
-  reconcileReplicaSets(next, explanations);
-  reconcileScheduler(next, explanations);
-  reconcileKubelet(next, explanations);
-  reconcileServices(next);
-  reconcilePVCs(next, explanations);
-  reconcileHPA(next, explanations);
-  reconcileNodes(next, explanations);
+    // Cleanup terminated pods based on grace period
+    draft.pods = draft.pods.filter(p => {
+      if (p.deletionTimestamp && draft.time >= p.deletionTimestamp + 5000) {
+        return false;
+      }
+      return true;
+    });
 
-  return next;
+    reconcileDeployments(draft, explanations);
+    reconcileReplicaSets(draft, explanations);
+    reconcileStatefulSets(draft, explanations);
+    reconcileDaemonSets(draft, explanations);
+    reconcileScheduler(draft, explanations);
+    reconcileKubelet(draft, explanations);
+    reconcileServices(draft);
+    reconcilePVCs(draft, explanations);
+    reconcileHPA(draft, explanations);
+    reconcileNodes(draft, explanations);
+  });
 }

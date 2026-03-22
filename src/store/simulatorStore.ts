@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { ClusterState, Deployment, Service, HPA, PersistentVolumeClaim, PersistentVolume, ExplanationEntry, Scenario, ScenarioId, NetworkPolicy, Role, RoleBinding } from '../types/k8s';
-import { reconcile, createInitialClusterState } from '../engine/reconciler';
+import type { ClusterState, Deployment, Service, HPA, PersistentVolumeClaim, PersistentVolume, ExplanationEntry, Scenario, ScenarioId, NetworkPolicy, Role, RoleBinding, StatefulSet, DaemonSet } from '../types/k8s';
+import { createInitialClusterState } from '../engine/reconciler';
 import { SCENARIOS } from '../data/scenarios';
 
 interface SimulatorStore {
@@ -14,6 +14,8 @@ interface SimulatorStore {
   scenarioMode: 'guided' | 'challenge' | 'sandbox';
   highlightedObject: { kind: string; name: string } | null;
   controlPlaneStep: number;
+  history: ClusterState[];
+  historyIndex: number | null;
   cpuSimulation: Record<string, number>; // deploymentName -> cpu%
 
   // Actions
@@ -29,6 +31,8 @@ interface SimulatorStore {
   clearHighlight: () => void;
   setControlPlaneStep: (step: number) => void;
 
+  setTimeTravel: (index: number | null) => void;
+
   // Cluster mutations
   applyYAML: (yaml: string) => { success: boolean; message: string; applied?: string };
   deleteResource: (kind: string, name: string, namespace: string) => void;
@@ -43,6 +47,8 @@ interface SimulatorStore {
   toggleMetricsServer: (available: boolean) => void;
   reset: () => void;
 }
+
+const worker = new Worker(new URL('../engine/worker.ts', import.meta.url), { type: 'module' });
 
 let intervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -62,6 +68,8 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
   highlightedObject: null,
   controlPlaneStep: -1,
   cpuSimulation: {},
+  history: [],
+  historyIndex: null,
 
   startLoop: () => {
     if (intervalId) clearInterval(intervalId);
@@ -76,22 +84,10 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
   },
 
   tick: () => {
-    set(state => {
-      const newExplanations: ExplanationEntry[] = [];
-      // Inject CPU simulation into HPA metrics
-      const cluster = { ...state.cluster };
-      for (const hpa of cluster.hpas) {
-        const depName = hpa.scaleTargetRef.name;
-        if (state.cpuSimulation[depName] !== undefined) {
-          hpa.currentMetrics = { cpu: state.cpuSimulation[depName] };
-        }
-      }
-      const newCluster = reconcile(cluster, newExplanations);
-      return {
-        cluster: newCluster,
-        explanations: [...newExplanations, ...state.explanations].slice(0, 100),
-      };
-    });
+    const s = get();
+    // Do not tick if we are in time-travel mode
+    if (s.historyIndex !== null) return;
+    worker.postMessage({ state: s.cluster, cpuSimulation: s.cpuSimulation });
   },
 
   setModule: (module) => set({ activeModule: module }),
@@ -127,6 +123,14 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
   highlight: (kind, name) => set({ highlightedObject: { kind, name } }),
   clearHighlight: () => set({ highlightedObject: null }),
   setControlPlaneStep: (step) => set({ controlPlaneStep: step }),
+  
+  setTimeTravel: (index) => set(state => {
+    if (index === null) {
+      if (state.history.length === 0) return { historyIndex: null };
+      return { historyIndex: null, cluster: state.history[state.history.length - 1] };
+    }
+    return { historyIndex: index, cluster: state.history[index] };
+  }),
 
   applyYAML: (yamlStr) => {
     try {
@@ -172,6 +176,64 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
             };
             if (existing >= 0) cluster.deployments[existing] = dep;
             else cluster.deployments.push(dep);
+            break;
+          }
+          case 'StatefulSet': {
+            cluster.statefulSets = [...cluster.statefulSets];
+            const existing = cluster.statefulSets.findIndex(d =>
+              d.name === obj.metadata?.name && d.namespace === (obj.metadata?.namespace || 'default')
+            );
+            const sts: StatefulSet = {
+              id: existing >= 0 ? cluster.statefulSets[existing].id : uid(),
+              name: obj.metadata?.name,
+              namespace: obj.metadata?.namespace || 'default',
+              labels: obj.metadata?.labels || {},
+              selector: obj.spec?.selector || { matchLabels: {} },
+              replicas: obj.spec?.replicas ?? 1,
+              template: {
+                metadata: { labels: obj.spec?.template?.metadata?.labels || {} },
+                spec: {
+                  containers: obj.spec?.template?.spec?.containers || [],
+                  tolerations: obj.spec?.template?.spec?.tolerations || [],
+                  nodeSelector: obj.spec?.template?.spec?.nodeSelector,
+                  resources: obj.spec?.template?.spec?.containers?.[0]?.resources?.requests || { cpu: 100, memory: 128 },
+                },
+              },
+              volumeClaimTemplates: obj.spec?.volumeClaimTemplates,
+              status: { replicas: 0, readyReplicas: 0, currentReplicas: 0 },
+              createdAt: existing >= 0 ? cluster.statefulSets[existing].createdAt : now,
+              _revision: (existing >= 0 ? cluster.statefulSets[existing]._revision : 0) + 1,
+            };
+            if (existing >= 0) cluster.statefulSets[existing] = sts;
+            else cluster.statefulSets.push(sts);
+            break;
+          }
+          case 'DaemonSet': {
+            cluster.daemonSets = [...cluster.daemonSets];
+            const existing = cluster.daemonSets.findIndex(d =>
+              d.name === obj.metadata?.name && d.namespace === (obj.metadata?.namespace || 'default')
+            );
+            const ds: DaemonSet = {
+              id: existing >= 0 ? cluster.daemonSets[existing].id : uid(),
+              name: obj.metadata?.name,
+              namespace: obj.metadata?.namespace || 'default',
+              labels: obj.metadata?.labels || {},
+              selector: obj.spec?.selector || { matchLabels: {} },
+              template: {
+                metadata: { labels: obj.spec?.template?.metadata?.labels || {} },
+                spec: {
+                  containers: obj.spec?.template?.spec?.containers || [],
+                  tolerations: obj.spec?.template?.spec?.tolerations || [],
+                  nodeSelector: obj.spec?.template?.spec?.nodeSelector,
+                  resources: obj.spec?.template?.spec?.containers?.[0]?.resources?.requests || { cpu: 50, memory: 64 },
+                },
+              },
+              status: { numberReady: 0, desiredNumberScheduled: 0, currentNumberScheduled: 0 },
+              createdAt: existing >= 0 ? cluster.daemonSets[existing].createdAt : now,
+              _revision: (existing >= 0 ? cluster.daemonSets[existing]._revision : 0) + 1,
+            };
+            if (existing >= 0) cluster.daemonSets[existing] = ds;
+            else cluster.daemonSets.push(ds);
             break;
           }
           case 'Service': {
@@ -309,6 +371,14 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
             return rs === undefined || rs.ownerRef?.name !== name;
           });
           break;
+        case 'StatefulSet':
+          cluster.statefulSets = cluster.statefulSets.filter(d => !(d.name === name && d.namespace === namespace));
+          cluster.pods = cluster.pods.filter(p => !(p.ownerRef?.name === name && p.ownerRef?.kind === 'StatefulSet'));
+          break;
+        case 'DaemonSet':
+          cluster.daemonSets = cluster.daemonSets.filter(d => !(d.name === name && d.namespace === namespace));
+          cluster.pods = cluster.pods.filter(p => !(p.ownerRef?.name === name && p.ownerRef?.kind === 'DaemonSet'));
+          break;
         case 'Pod':
           cluster.pods = cluster.pods.filter(p => !(p.name === name && p.namespace === namespace));
           break;
@@ -433,9 +503,30 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
       activeScenario: null,
       cpuSimulation: {},
       controlPlaneStep: -1,
+      history: [],
+      historyIndex: null,
     });
   },
 }));
+
+worker.onmessage = (e) => {
+  if (e.data.type === 'TICK_RESULT') {
+    const { nextState, newExplanations } = e.data;
+    useSimulator.setState(state => {
+      // Ignore ticks if time-traveling
+      if (state.historyIndex !== null) return state;
+      
+      const newHistory = [...state.history, nextState];
+      if (newHistory.length > 500) newHistory.shift();
+      
+      return {
+        cluster: nextState,
+        history: newHistory,
+        explanations: [...newExplanations, ...state.explanations].slice(0, 100),
+      };
+    });
+  }
+};
 
 // ===== SCENARIO LOADER =====
 function applyScenarioToCluster(id: ScenarioId, cluster: ClusterState): ClusterState {

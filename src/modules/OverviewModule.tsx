@@ -50,7 +50,9 @@ export function OverviewModule() {
 
   const runningPods = cluster.pods.filter(p => p.phase === 'Running').length;
   const pendingPods = cluster.pods.filter(p => p.phase === 'Pending').length;
-  const failedPods = cluster.pods.filter(p => p.phase === 'Failed').length;
+  const failedPods = cluster.pods.filter(p => 
+    p.phase === 'Failed' || p.status.containerStatuses.some(cs => cs.reason === 'ImagePullBackOff' || cs.reason === 'CrashLoopBackOff' || cs.reason === 'ErrImagePull' || cs.reason === 'OOMKilled')
+  ).length;
   const readyPods = cluster.pods.filter(p => p.readinessReady && p.phase === 'Running').length;
   const warnings = cluster.events.filter(e => e.type === 'Warning').length;
 
@@ -167,8 +169,6 @@ function NodeCard({ node, pods, onKill, onRestore, onTaint, onUntaint }: {
   onTaint: () => void;
   onUntaint: () => void;
 }) {
-  const cpuPct = node.allocatable.cpu > 0 ? Math.round((node.used.cpu / node.allocatable.cpu) * 100) : 0;
-  const memPct = node.allocatable.memory > 0 ? Math.round((node.used.memory / node.allocatable.memory) * 100) : 0;
   const isReady = node.status === 'Ready';
 
   return (

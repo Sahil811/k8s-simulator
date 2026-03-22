@@ -667,6 +667,13 @@ function execKubectl(rawCmd: string, store: ExecContext): { lines: OutputLine[] 
     }
   }
 
+  // ── apply ───────────────────────────────────────────────────────
+  else if (sub === 'apply') {
+    out(`Notice: File access is restricted in this browser terminal simulation.`, 'warn');
+    out(`To apply YAML manifests, please use the 📄 YAML Editor tab on the left sidebar.`, 'ok');
+    out(`Any standard Kubernetes YAML pasted there will be instantly processed.`);
+  }
+
   // ── help ──────────────────────────────────────────────────────────
   else if (sub === 'help' || sub === '--help' || sub === '-h' || !sub) {
     out(`kubectl controls the Kubernetes cluster manager.`);

@@ -1,4 +1,4 @@
-import type { Scenario } from '../types/k8s';
+import type { Scenario, ClusterState } from '../types/k8s';
 
 export const SCENARIOS: Scenario[] = [
   {
@@ -24,6 +24,12 @@ export const SCENARIOS: Scenario[] = [
       'The reason field in pod status tells you the exact failure mode',
       'ImagePullBackOff means Kubernetes is applying exponential backoff between retries',
     ],
+    validate: (state: ClusterState) => {
+      const dep = state.deployments.find(d => d.name === 'bad-image-app');
+      if (!dep) return false;
+      const pods = state.pods.filter(p => p.ownerRef?.name === 'bad-image-app' && p.phase !== 'Terminating');
+      return pods.length > 0 && pods.every(p => p.phase === 'Running' && p.readinessReady) && !state.badImages.includes(dep.template.spec.containers[0]?.image);
+    },
   },
   {
     id: 'crash-loop-backoff',
@@ -48,6 +54,11 @@ export const SCENARIOS: Scenario[] = [
       '"CrashLoopBackOff" means the backoff reached maximum — pod will restart every ~5min',
       'Use --previous flag to see logs of the crashed container',
     ],
+    validate: (state: ClusterState) => {
+      const hasCrasher = state.pods.some(p => p.ownerRef?.name === 'crasher' && p.phase !== 'Terminating');
+      const hasRunning = state.pods.some(p => p.phase === 'Running' && p.readinessReady);
+      return !hasCrasher && hasRunning;
+    },
   },
   {
     id: 'pending-resources',
@@ -73,6 +84,12 @@ export const SCENARIOS: Scenario[] = [
       'Use kubectl top nodes to see current utilization (here simulated in the Nodes panel)',
       'fractional CPU is fine: 100m = 0.1 core',
     ],
+    validate: (state: ClusterState) => {
+      const dep = state.deployments.find(d => d.name === 'memory-hog');
+      if (!dep) return false;
+      const pods = state.pods.filter(p => p.ownerRef?.name === 'memory-hog' && p.phase !== 'Terminating');
+      return pods.length > 0 && pods.every(p => p.phase === 'Running');
+    },
   },
   {
     id: 'pending-taint',
@@ -96,6 +113,12 @@ export const SCENARIOS: Scenario[] = [
       'operator: Exists means match any value for key',
       'NoExecute taints also evict already-running pods',
     ],
+    validate: (state: ClusterState) => {
+      const dep = state.deployments.find(d => d.name === 'no-toleration-app');
+      if (!dep) return false;
+      const pods = state.pods.filter(p => p.ownerRef?.name === 'no-toleration-app' && p.phase !== 'Terminating');
+      return pods.length > 0 && pods.every(p => p.phase === 'Running');
+    },
   },
   {
     id: 'node-failure',
@@ -122,6 +145,11 @@ export const SCENARIOS: Scenario[] = [
       'Simulation uses 5s for visibility',
       'Pod Disruption Budgets can control eviction rates',
     ],
+    validate: (state: ClusterState) => {
+      const dep = state.deployments.find(d => d.name === 'resilient-app');
+      if (!dep) return false;
+      return dep.status.readyReplicas === dep.replicas && dep.replicas > 0;
+    },
   },
   {
     id: 'oom-killed',
@@ -146,6 +174,13 @@ export const SCENARIOS: Scenario[] = [
       'Limits are enforced by cgroups; requests are for scheduling',
       'Use kubectl top pods to see current memory usage',
     ],
+    validate: (state: ClusterState) => {
+      const dep = state.deployments.find(d => d.name === 'memory-eater');
+      if (!dep) return false;
+      const lim = dep.template.spec.containers[0]?.resources?.limits?.memory;
+      const limNum = typeof lim === 'number' ? lim : 0;
+      return limNum >= 128 && dep.status.readyReplicas === dep.replicas && dep.replicas > 0;
+    },
   },
   {
     id: 'pvc-pending',
@@ -170,6 +205,11 @@ export const SCENARIOS: Scenario[] = [
       'Dynamic provisioning requires a StorageClass with a provisioner field',
       'kubectl describe pvc shows the exact mismatch reason',
     ],
+    validate: (state: ClusterState) => {
+      const pvc = state.pvcs.find(p => p.name === 'data-pvc');
+      if (!pvc) return false;
+      return pvc.phase === 'Bound';
+    },
   },
   {
     id: 'service-selector-mismatch',
@@ -194,6 +234,11 @@ export const SCENARIOS: Scenario[] = [
       'Endpoints object is auto-updated by the endpoints controller',
       'Test with: kubectl exec -it <pod> -- curl <service-ip>',
     ],
+    validate: (state: ClusterState) => {
+      const svc = state.services.find(s => s.name === 'web-app-svc');
+      if (!svc) return false;
+      return svc.endpoints.length > 0;
+    },
   },
   {
     id: 'rolling-update-stuck',
@@ -219,6 +264,11 @@ export const SCENARIOS: Scenario[] = [
       'Readiness probe failure ≠ pod crash — pod stays Running but gets no traffic',
       'kubectl rollout history shows revision history',
     ],
+    validate: (state: ClusterState) => {
+      const dep = state.deployments.find(d => d.name === 'web-frontend');
+      if (!dep) return false;
+      return dep.status.readyReplicas === dep.replicas && dep.status.updatedReplicas === dep.replicas && dep.replicas > 0 && state.pods.filter(p => p.ownerRef?.name === 'web-frontend').every(p => p.readinessReady);
+    },
   },
   {
     id: 'hpa-not-scaling',
@@ -243,6 +293,11 @@ export const SCENARIOS: Scenario[] = [
       'kubectl top pods fails for the same reason',
       'Check: kubectl get apiservices v1beta1.metrics.k8s.io',
     ],
+    validate: (state: ClusterState) => {
+      const hpa = state.hpas.find(h => h.name === 'api-server-hpa');
+      if (!hpa) return false;
+      return hpa.metricsAvailable && hpa.currentReplicas > hpa.minReplicas;
+    },
   },
   {
     id: 'rbac-forbidden',
@@ -266,6 +321,12 @@ export const SCENARIOS: Scenario[] = [
       'Default deny: no permissions unless explicitly granted',
       'kubectl auth can-i is your best debug tool for RBAC',
     ],
+    validate: (state: ClusterState) => {
+      return state.roleBindings.some(rb => 
+        rb.roleRef.name === 'pod-reader' && 
+        rb.subjects.some(s => s.name === 'restricted-sa')
+      );
+    },
   },
   {
     id: 'network-policy-blocking',
@@ -290,5 +351,11 @@ export const SCENARIOS: Scenario[] = [
       'Empty podSelector {} matches all pods in the namespace',
       'Test with: kubectl exec <frontend-pod> -- curl <backend-pod-ip>:8080',
     ],
+    validate: (state: ClusterState) => {
+      const denyPol = state.networkPolicies.find(np => np.name === 'deny-all-ingress');
+      if (!denyPol) return true; // user deleted it
+      const allowPol = state.networkPolicies.find(np => np.name !== 'deny-all-ingress' && np.ingress?.length);
+      return !!allowPol;
+    },
   },
 ];

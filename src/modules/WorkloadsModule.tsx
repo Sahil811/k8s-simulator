@@ -7,7 +7,7 @@ function getPodStatusColor(pod: Pod): string {
   if (reason === 'ImagePullBackOff' || reason === 'CrashLoopBackOff' || reason === 'OOMKilled') return 'var(--k8s-red)';
   switch (pod.phase) {
     case 'Running': return pod.readinessReady ? 'var(--k8s-green)' : 'var(--k8s-yellow)';
-    case 'Pending': return 'var(--k8s-yellow)';
+    case 'Pending': return pod.status.containerStatuses.some(cs => cs.reason === 'ErrImagePull') ? 'var(--k8s-red)' : 'var(--k8s-yellow)';
     case 'Failed': return 'var(--k8s-red)';
     case 'Terminating': return 'var(--k8s-purple)';
     default: return 'var(--text-muted)';
@@ -45,9 +45,8 @@ function PodDot({ pod, onClick }: { pod: Pod; onClick: () => void }) {
 }
 
 export function WorkloadsModule() {
-  const { cluster, deleteResource, highlight, highlightedObject } = useSimulator();
+  const { cluster, deleteResource } = useSimulator();
   const [selectedPod, setSelectedPod] = React.useState<Pod | null>(null);
-  const [selectedDep, setSelectedDep] = React.useState<Deployment | null>(null);
 
   const deps = cluster.deployments;
   const replicaSets = cluster.replicaSets;
@@ -84,7 +83,7 @@ export function WorkloadsModule() {
           const rsPods = rs ? getPodsForRS(rs) : [];
           const readyCount = rsPods.filter(p => p.readinessReady && p.phase === 'Running').length;
           const pendingCount = rsPods.filter(p => p.phase === 'Pending').length;
-          const failedCount = rsPods.filter(p => p.phase === 'Failed' || p.status.containerStatuses.some(cs => cs.reason === 'ImagePullBackOff' || cs.reason === 'CrashLoopBackOff')).length;
+          const failedCount = rsPods.filter(p => p.phase === 'Failed' || p.status.containerStatuses.some(cs => cs.reason === 'ImagePullBackOff' || cs.reason === 'CrashLoopBackOff' || cs.reason === 'ErrImagePull' || cs.reason === 'OOMKilled')).length;
 
           return (
             <div key={dep.id} style={{

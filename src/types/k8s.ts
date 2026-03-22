@@ -104,6 +104,7 @@ export interface Pod {
   _imagePullFailing: boolean;
   _schedulingAttempts: number;
   _pendingSince?: number;
+  deletionTimestamp?: number;
 }
 
 // ========== ReplicaSet ==========
@@ -120,6 +121,7 @@ export interface RSPodTemplate {
   _crashCount: number;
   _imagePullFailing: boolean;
   _schedulingAttempts: number;
+  deletionTimestamp?: number;
 }
 
 export interface ReplicaSet {
@@ -169,6 +171,61 @@ export interface Deployment {
   };
   createdAt: number;
   _currentRSName?: string;
+  _revision: number;
+}
+
+// ========== StatefulSet ==========
+export interface StatefulSet {
+  id: string;
+  name: string;
+  namespace: string;
+  labels: Record<string, string>;
+  selector: LabelSelector;
+  replicas: number;
+  template: {
+    metadata: { labels: Record<string, string> };
+    spec: {
+      containers: Container[];
+      tolerations?: Toleration[];
+      nodeSelector?: Record<string, string>;
+      resources?: ResourceRequirements;
+    };
+  };
+  volumeClaimTemplates?: {
+    metadata: { name: string; labels?: Record<string, string> };
+    spec: { accessModes: string[]; resources: { requests: { storage: string } } };
+  }[];
+  status: {
+    replicas: number;
+    readyReplicas: number;
+    currentReplicas: number;
+  };
+  createdAt: number;
+  _revision: number;
+}
+
+// ========== DaemonSet ==========
+export interface DaemonSet {
+  id: string;
+  name: string;
+  namespace: string;
+  labels: Record<string, string>;
+  selector: LabelSelector;
+  template: {
+    metadata: { labels: Record<string, string> };
+    spec: {
+      containers: Container[];
+      tolerations?: Toleration[];
+      nodeSelector?: Record<string, string>;
+      resources?: ResourceRequirements;
+    };
+  };
+  status: {
+    numberReady: number;
+    desiredNumberScheduled: number;
+    currentNumberScheduled: number;
+  };
+  createdAt: number;
   _revision: number;
 }
 
@@ -297,6 +354,8 @@ export interface ClusterState {
   pods: Pod[];
   replicaSets: ReplicaSet[];
   deployments: Deployment[];
+  statefulSets: StatefulSet[];
+  daemonSets: DaemonSet[];
   services: Service[];
   ingresses: Ingress[];
   pvs: PersistentVolume[];
@@ -362,4 +421,5 @@ export interface Scenario {
   rootCause: string;
   resolution: string[];
   hints: string[];
+  validate?: (state: any) => boolean; // Use any to avoid circular deps if needed, or ClusterState
 }

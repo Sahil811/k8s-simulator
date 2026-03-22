@@ -19,8 +19,11 @@ export function Sidebar() {
   const { activeModule, setModule, cluster, activeScenario, explanations } = useSimulator();
 
   const warningCount = cluster.events.filter(e => e.type === 'Warning').length;
-  const podFailed = cluster.pods.filter(p => p.phase === 'Failed').length;
-  const podPending = cluster.pods.filter(p => p.phase === 'Pending').length;
+  const podFailed = cluster.pods.filter(p => 
+    p.phase === 'Failed' || 
+    p.status.containerStatuses.some(cs => cs.reason === 'ImagePullBackOff' || cs.reason === 'CrashLoopBackOff' || cs.reason === 'ErrImagePull' || cs.reason === 'OOMKilled')
+  ).length;
+  const podPending = cluster.pods.filter(p => p.phase === 'Pending' && !p.status.containerStatuses.some(cs => cs.reason)).length;
 
   function getBadge(id: string) {
     if (id === 'scenarios') {

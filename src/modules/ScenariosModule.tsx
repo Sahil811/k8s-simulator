@@ -1,10 +1,8 @@
-import React from 'react';
 import { useSimulator } from '../store/simulatorStore';
 import { SCENARIOS } from '../data/scenarios';
-import type { ScenarioId } from '../types/k8s';
 
 export function ScenariosModule() {
-  const { loadScenario, activeScenario, exitScenario, cluster, applyYAML } = useSimulator();
+  const { loadScenario, activeScenario } = useSimulator();
 
   const categoryColors: Record<string, string> = {
     Workload: 'var(--k8s-blue)',
@@ -34,7 +32,7 @@ export function ScenariosModule() {
         {SCENARIOS.map(s => (
           <div
             key={s.id}
-            className={`scenario-card ${activeScenario?.id === s.id ? 'active' : ''}`}
+            className="scenario-card"
             onClick={() => loadScenario(s.id)}
             id={`scenario-${s.id}`}
           >
@@ -75,12 +73,12 @@ export function ScenariosModule() {
 }
 
 function ActiveScenarioView() {
-  const { activeScenario, exitScenario, cluster, applyYAML } = useSimulator();
+  const { activeScenario, exitScenario, cluster } = useSimulator();
   if (!activeScenario) return null;
 
   const pods = cluster.pods;
   const failedPods = pods.filter(p =>
-    p.phase === 'Failed' || p.status.containerStatuses.some(cs => cs.reason === 'ImagePullBackOff' || cs.reason === 'CrashLoopBackOff')
+    p.phase === 'Failed' || p.status.containerStatuses.some(cs => cs.reason === 'ImagePullBackOff' || cs.reason === 'CrashLoopBackOff' || cs.reason === 'ErrImagePull' || cs.reason === 'OOMKilled')
   );
   const pendingPods = pods.filter(p => p.phase === 'Pending');
 
@@ -102,6 +100,22 @@ function ActiveScenarioView() {
           Exit Scenario
         </button>
       </div>
+
+      {activeScenario.validate && activeScenario.validate(cluster) && (
+        <div style={{
+          background: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)',
+          borderRadius: 'var(--radius-lg)', padding: '16px 20px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 12, animation: 'fadeIn 0.5s ease-out'
+        }}>
+          <div style={{ fontSize: 24 }}>🎉</div>
+          <div>
+            <div style={{ color: 'var(--k8s-green)', fontWeight: 'bold', fontSize: 14 }}>Scenario Solved!</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: 12, marginTop: 4 }}>
+              You successfully diagnosed and resolved the issue. The cluster state is healthy again.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status overview */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
