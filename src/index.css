@@ -2160,6 +2160,10 @@ body {
 .viz-box {
   border-radius: var(--radius-md);
   padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-weight: 700;
   border: 1px solid;
@@ -2248,7 +2252,7 @@ body {
   justify-content: center;
 }
 .viz-hub { position: relative; width: 550px; height: 350px; }
-.api-server { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; width: 160px; }
+.api-server { position: absolute; top: 50%; left: 35%; transform: translate(-50%, -50%); z-index: 10; width: 160px; }
 .viz-spoke { position: absolute; width: 110px; }
 .viz-spoke.etcd { top: 0; left: 50%; transform: translateX(-50%); }
 .viz-spoke.scheduler { bottom: 0; left: 0; }
