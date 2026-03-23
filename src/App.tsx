@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { EventsPanel } from './components/EventsPanel';
@@ -14,12 +14,16 @@ import { ScenariosModule } from './modules/ScenariosModule';
 import { YAMLEditorModule } from './modules/YAMLEditorModule';
 import { KubectlTerminalModule } from './modules/KubectlTerminalModule';
 import { useSimulator } from './store/simulatorStore';
+import { ConceptCard, registerConceptCardOpener } from './components/ConceptCard';
+import { AchievementToastContainer } from './components/AchievementToast';
 
 export function App() {
   const { activeModule, startLoop } = useSimulator();
+  const [openConceptId, setOpenConceptId] = useState<string | null>(null);
 
   useEffect(() => {
     startLoop();
+    registerConceptCardOpener((id) => setOpenConceptId(id));
   }, []);
 
   function renderModule() {
@@ -47,6 +51,10 @@ export function App() {
       </main>
       <EventsPanel />
       <WhyPanel />
+      <AchievementToastContainer />
+      {openConceptId && (
+        <ConceptCard conceptId={openConceptId} onClose={() => setOpenConceptId(null)} />
+      )}
     </div>
   );
 }

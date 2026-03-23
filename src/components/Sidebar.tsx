@@ -1,6 +1,8 @@
 import React from 'react';
 import { useSimulator } from '../store/simulatorStore';
 import { SCENARIOS } from '../data/scenarios';
+import { ProgressPanel } from './ProgressPanel';
+import { useProgress } from '../store/progressStore';
 
 const MODULES = [
   { id: 'overview', label: 'Cluster Overview', icon: '⎈' },
@@ -17,6 +19,7 @@ const MODULES = [
 
 export function Sidebar() {
   const { activeModule, setModule, cluster, activeScenario, explanations } = useSimulator();
+  const { solvedScenarios } = useProgress();
 
   const warningCount = cluster.events.filter(e => e.type === 'Warning').length;
   const podFailed = cluster.pods.filter(p => 
@@ -73,6 +76,7 @@ export function Sidebar() {
         >
           <span className={`difficulty-${s.difficulty}`} style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor', flexShrink: 0 }}></span>
           <span className="text-mono" style={{ fontSize: 11 }}>{s.title}</span>
+          {solvedScenarios.includes(s.id) && <span style={{ marginLeft: 'auto', color: 'var(--k8s-green)', fontSize: 10 }}>✓</span>}
         </div>
       ))}
 
@@ -89,6 +93,9 @@ export function Sidebar() {
           </div>
         </>
       )}
+      <div style={{ marginTop: 'auto' }}>
+        <ProgressPanel />
+      </div>
     </nav>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSimulator } from '../store/simulatorStore';
+import { useProgress } from '../store/progressStore';
 import MonacoEditor from '@monaco-editor/react';
 
 // YAML templates
@@ -156,6 +157,7 @@ const FIELD_ANNOTATIONS: Record<string, string> = {
 
 export function YAMLEditorModule() {
   const { applyYAML } = useSimulator();
+  const { incrementYamlApplied } = useProgress();
   const [yaml, setYaml] = useState(TEMPLATES.deployment.yaml);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [hoveredField, setHoveredField] = useState<string | null>(null);
@@ -171,6 +173,7 @@ export function YAMLEditorModule() {
     const res = applyYAML(yaml);
     setResult(res);
     if (res.success) {
+      incrementYamlApplied();
       setTimeout(() => setResult(null), 4000);
     }
   }

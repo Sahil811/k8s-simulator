@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useSimulator } from '../store/simulatorStore';
+import { useProgress } from '../store/progressStore';
 
 export function TimeTravelBar() {
   const { history, historyIndex, setTimeTravel, cluster } = useSimulator();
+  const { markTimeLord } = useProgress();
+  const timeLordFired = useRef(false);
   
   if (history.length < 2) return null; // Not enough history to scrub yet
 
@@ -51,6 +54,10 @@ export function TimeTravelBar() {
           value={currentIndex}
           onChange={(e) => {
             const val = Number(e.target.value);
+            if (!timeLordFired.current && val !== history.length - 1) {
+              timeLordFired.current = true;
+              markTimeLord();
+            }
             if (val === history.length - 1) {
               setTimeTravel(null);
             } else {

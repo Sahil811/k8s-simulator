@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSimulator } from '../store/simulatorStore';
+import { useProgress } from '../store/progressStore';
 import type { Pod, K8sNode } from '../types/k8s';
 
 function getPodBadgeClass(pod: Pod) {
@@ -47,6 +48,12 @@ function formatAge(ts: number) {
 
 export function OverviewModule() {
   const { cluster, setNodeStatus, addTaint, removeTaint, setModule } = useSimulator();
+  const { markChaosEngineer } = useProgress();
+
+  function handleKillNode(nodeId: string) {
+    setNodeStatus(nodeId, 'NotReady');
+    markChaosEngineer();
+  }
 
   const runningPods = cluster.pods.filter(p => p.phase === 'Running').length;
   const pendingPods = cluster.pods.filter(p => p.phase === 'Pending').length;
@@ -88,7 +95,7 @@ export function OverviewModule() {
         {cluster.nodes.map(node => (
           <NodeCard key={node.id} node={node}
             pods={cluster.pods.filter(p => p.nodeName === node.id)}
-            onKill={() => setNodeStatus(node.id, 'NotReady')}
+            onKill={() => handleKillNode(node.id)}
             onRestore={() => setNodeStatus(node.id, 'Ready')}
             onTaint={() => addTaint(node.id, 'dedicated', 'true', 'NoSchedule')}
             onUntaint={() => removeTaint(node.id, 'dedicated')}
