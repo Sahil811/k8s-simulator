@@ -21,7 +21,7 @@ export function WhyPanel() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span className="why-controller">{entry.controller}</span>
           <button
-            onClick={() => setDismissed(d => new Set([...d, entry.id]))}
+            onClick={() => setDismissed(d => new Set([...d, ...explanations.map(e => e.id)]))}
             style={{
               border: 'none', background: 'none',
               color: 'var(--text-muted)', cursor: 'pointer', fontSize: 14,
