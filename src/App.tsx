@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Sidebar } from './components/Sidebar';
 import { EventsPanel } from './components/EventsPanel';
 import { WhyPanel } from './components/WhyPanel';
+import { LearningPathModule } from './modules/LearningPathModule';
 import { OverviewModule } from './modules/OverviewModule';
 import { ControlPlaneModule } from './modules/ControlPlaneModule';
 import { WorkloadsModule } from './modules/WorkloadsModule';
@@ -28,6 +29,7 @@ export function App() {
 
   function renderModule() {
     switch (activeModule) {
+      case 'learningpath': return <LearningPathModule />;
       case 'overview': return <OverviewModule />;
       case 'controlplane': return <ControlPlaneModule />;
       case 'workloads': return <WorkloadsModule />;

@@ -1935,3 +1935,166 @@ body {
   box-shadow: 0 4px 20px rgba(34, 197, 94, 0.1) !important;
 }
 
+/* ===== LEARNING PATH ===== */
+.learning-path-module {
+  padding: 40px;
+  max-width: 800px;
+  margin: 0 auto;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.learning-hero {
+  text-align: center;
+  margin-bottom: 60px;
+  padding: 30px;
+  background: linear-gradient(135deg, rgba(79, 128, 255, 0.1), rgba(0, 212, 255, 0.05));
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-glow);
+}
+
+.learning-hero-title {
+  font-size: 32px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #fff, #a8c7fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.learning-hero-desc {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.journey-timeline {
+  position: relative;
+  padding-left: 40px;
+}
+
+.journey-timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 20px;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--k8s-blue), var(--k8s-teal), var(--k8s-cyan), var(--k8s-green), var(--k8s-purple), var(--k8s-red));
+  opacity: 0.3;
+}
+
+.journey-phase {
+  position: relative;
+  margin-bottom: 40px;
+}
+
+.journey-phase.finale {
+  margin-bottom: 80px;
+}
+
+.phase-node {
+  position: absolute;
+  left: -40px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+  color: white;
+  box-shadow: 0 0 15px currentColor;
+  z-index: 2;
+}
+
+.phase-blue { background: var(--k8s-blue); color: var(--k8s-blue); }
+.phase-teal { background: var(--k8s-teal); color: var(--k8s-teal); }
+.phase-cyan { background: var(--k8s-cyan); color: var(--k8s-cyan); }
+.phase-green { background: var(--k8s-green); color: var(--k8s-green); }
+.phase-purple { background: var(--k8s-purple); color: var(--k8s-purple); }
+.phase-red { background: var(--k8s-red); color: var(--k8s-red); }
+
+.phase-node { color: white !important; }
+
+.phase-content {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-left: 20px;
+  transition: transform var(--transition-base), box-shadow var(--transition-base), border-color var(--transition-base);
+}
+
+.phase-content:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-focus);
+  box-shadow: var(--shadow-card);
+}
+
+.phase-header {
+  margin-bottom: 12px;
+}
+
+.phase-subtitle {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.phase-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.phase-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.phase-concepts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 12px;
+  background: rgba(0,0,0,0.2);
+  border-radius: var(--radius-md);
+}
+
+.phase-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition-fast);
+  color: white;
+}
+
+.btn-blue { background: var(--k8s-blue); box-shadow: 0 4px 12px rgba(79, 128, 255, 0.3); }
+.btn-teal { background: var(--k8s-teal); box-shadow: 0 4px 12px rgba(0, 180, 204, 0.3); }
+.btn-cyan { background: var(--k8s-cyan); box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3); color: #000; }
+.btn-green { background: var(--k8s-green); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
+.btn-purple { background: var(--k8s-purple); box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3); }
+.btn-red { background: var(--k8s-red); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
+
+.phase-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.1);
+}

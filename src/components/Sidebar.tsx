@@ -5,6 +5,7 @@ import { ProgressPanel } from './ProgressPanel';
 import { useProgress } from '../store/progressStore';
 
 const MODULES = [
+  { id: 'learningpath', label: 'Learning Path', icon: '🗺️' },
   { id: 'overview', label: 'Cluster Overview', icon: '⎈' },
   { id: 'controlplane', label: 'Control Plane', icon: '🔄' },
   { id: 'workloads', label: 'Workload Lab', icon: '📦' },

@@ -62,7 +62,7 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
   explanations: [],
   running: false,
   tickRate: 500,
-  activeModule: 'overview',
+  activeModule: 'learningpath',
   activeScenario: null,
   scenarioMode: 'sandbox',
   highlightedObject: null,
