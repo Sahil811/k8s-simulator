@@ -1005,6 +1005,7 @@ body {
 .cpu-slider {
   flex: 1;
   -webkit-appearance: none;
+  appearance: none;
   height: 6px;
   border-radius: 3px;
   background: var(--bg-base);
@@ -1014,6 +1015,7 @@ body {
 
 .cpu-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -1938,7 +1940,7 @@ body {
 /* ===== LEARNING PATH ===== */
 .learning-path-module {
   padding: 40px;
-  max-width: 800px;
+  max-width: 1100px;
   margin: 0 auto;
   overflow-y: auto;
   height: 100%;
@@ -1960,6 +1962,7 @@ body {
   margin-bottom: 16px;
   background: linear-gradient(135deg, #fff, #a8c7fa);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -2116,7 +2119,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-width: 300px;
+  min-width: 540px;
   padding: 24px;
   background: rgba(0,0,0,0.15);
   border-radius: var(--radius-lg);
@@ -2133,6 +2136,10 @@ body {
   align-items: center;
   font-family: var(--font-mono);
   color: white;
+}
+
+.learning-visual.control-plane-viz {
+  max-width: 520px;
 }
 
 .viz-box {
@@ -2218,20 +2225,20 @@ body {
 }
 
 /* Control Plane */
-.control-plane-viz { position: relative; height: 200px; justify-content: center; }
-.viz-hub { position: relative; width: 200px; height: 200px; }
-.api-server { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; width: 100px; }
-.viz-spoke { position: absolute; width: 60px; }
+.control-plane-viz { position: relative; height: 300px; justify-content: center; }
+.viz-hub { position: relative; width: 500px; height: 300px; margin: 0 auto; }
+.api-server { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; width: 120px; }
+.viz-spoke { position: absolute; width: 100px; }
 .viz-spoke.etcd { top: 0; left: 50%; transform: translateX(-50%); }
-.viz-spoke.scheduler { bottom: 10%; left: 0; }
-.viz-spoke.controller { bottom: 10%; right: 0; }
+.viz-spoke.scheduler { bottom: 0; left: 0; }
+.viz-spoke.controller { bottom: 0; right: 0; }
 
 .viz-beam {
   position: absolute; background: rgba(255,255,255,0.2);
 }
-.etcd .viz-beam { width: 2px; height: 40px; left: 50%; bottom: -40px; transform: translateX(-50%); }
-.scheduler .viz-beam { width: 45px; height: 2px; right: -45px; top: 50%; transform: translateY(-50%) rotate(-30deg); transform-origin: left center;}
-.controller .viz-beam { width: 45px; height: 2px; left: -45px; top: 50%; transform: translateY(-50%) rotate(30deg); transform-origin: right center;}
+.etcd .viz-beam { width: 2px; height: 95px; left: 50%; bottom: -95px; transform: translateX(-50%); }
+.scheduler .viz-beam { width: 150px; height: 2px; right: -150px; top: 50%; transform: translateY(-50%) rotate(-30deg); transform-origin: left center;}
+.controller .viz-beam { width: 150px; height: 2px; left: -150px; top: 50%; transform: translateY(-50%) rotate(30deg); transform-origin: right center;}
 
 .viz-beam::after {
   content: ''; position: absolute; width: 6px; height: 6px; background: var(--k8s-blue);
@@ -2284,5 +2291,145 @@ body {
 
 @media (max-width: 900px) {
   .phase-content { flex-direction: column; }
-  .phase-visual-panel { width: 100%; }
+}
+
+/* ===== LEARNING PROGRESS BAR ===== */
+.learning-progress-container {
+  margin-top: 30px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.learning-progress-header {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.learning-progress-track {
+  height: 8px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.learning-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--k8s-blue), var(--k8s-cyan));
+  border-radius: 4px;
+  transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+}
+
+/* ===== PHASE QUESTS ===== */
+.phase-quests {
+  margin-top: 24px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.quests-header {
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-primary);
+}
+
+.quests-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.scenario-quest-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+
+.scenario-quest-item:last-child {
+  border-bottom: none;
+}
+
+.scenario-quest-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.quest-checkbox {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid var(--border-focus);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: transparent;
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+}
+
+.scenario-quest-item.solved .quest-checkbox {
+  background: var(--k8s-green);
+  border-color: var(--k8s-green);
+  color: white;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+}
+
+.quest-content {
+  flex: 1;
+}
+
+.quest-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.scenario-quest-item.solved .quest-title {
+  color: var(--k8s-green);
+}
+
+.quest-diff {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.quest-btn {
+  background: transparent;
+  border: 1px solid var(--border-focus);
+  color: var(--text-secondary);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.scenario-quest-item:hover .quest-btn {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+
+.scenario-quest-item.solved .quest-btn {
+  border-color: rgba(34, 197, 94, 0.5);
+  color: var(--k8s-green);
 }
