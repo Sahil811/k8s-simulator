@@ -212,7 +212,7 @@ export function LearningPathModule() {
         {/* Phase 5 */}
         <div className="journey-phase">
           <div className="phase-node phase-purple">5</div>
-          <div className="phase-content">
+          <div className="phase-content vertical">
             <div className="phase-text-panel">
               <div className="phase-header">
                 <div className="phase-subtitle">PHASE 5</div>
@@ -248,7 +248,7 @@ export function LearningPathModule() {
         {/* Phase 6 */}
         <div className="journey-phase finale">
           <div className="phase-node phase-orange">6</div>
-          <div className="phase-content">
+          <div className="phase-content vertical">
             <div className="phase-text-panel">
               <div className="phase-header">
                 <div className="phase-subtitle">PHASE 6</div>

@@ -1940,7 +1940,7 @@ body {
 /* ===== LEARNING PATH ===== */
 .learning-path-module {
   padding: 40px;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   overflow-y: auto;
   height: 100%;
@@ -2106,7 +2106,22 @@ body {
 .phase-content {
   display: flex;
   gap: 32px;
+  align-items: flex-start;
+}
+
+.phase-content.vertical {
+  flex-direction: column;
   align-items: center;
+}
+
+.phase-content.vertical .phase-text {
+  max-width: 800px;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.phase-content.vertical .phase-visual-panel {
+  width: 100%;
 }
 
 .phase-text-panel {
@@ -2119,7 +2134,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-width: 540px;
+  min-width: 600px;
   padding: 24px;
   background: rgba(0,0,0,0.15);
   border-radius: var(--radius-lg);
@@ -2139,7 +2154,7 @@ body {
 }
 
 .learning-visual.control-plane-viz {
-  max-width: 520px;
+  max-width: 580px;
 }
 
 .viz-box {
@@ -2225,10 +2240,16 @@ body {
 }
 
 /* Control Plane */
-.control-plane-viz { position: relative; height: 300px; justify-content: center; }
-.viz-hub { position: relative; width: 500px; height: 300px; margin: 0 auto; }
-.api-server { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; width: 120px; }
-.viz-spoke { position: absolute; width: 100px; }
+.control-plane-viz { 
+  position: relative; 
+  height: 350px; 
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+.viz-hub { position: relative; width: 550px; height: 350px; }
+.api-server { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; width: 160px; }
+.viz-spoke { position: absolute; width: 110px; }
 .viz-spoke.etcd { top: 0; left: 50%; transform: translateX(-50%); }
 .viz-spoke.scheduler { bottom: 0; left: 0; }
 .viz-spoke.controller { bottom: 0; right: 0; }
@@ -2236,9 +2257,9 @@ body {
 .viz-beam {
   position: absolute; background: rgba(255,255,255,0.2);
 }
-.etcd .viz-beam { width: 2px; height: 95px; left: 50%; bottom: -95px; transform: translateX(-50%); }
-.scheduler .viz-beam { width: 150px; height: 2px; right: -150px; top: 50%; transform: translateY(-50%) rotate(-30deg); transform-origin: left center;}
-.controller .viz-beam { width: 150px; height: 2px; left: -150px; top: 50%; transform: translateY(-50%) rotate(30deg); transform-origin: right center;}
+.etcd .viz-beam { width: 2px; height: 120px; left: 50%; bottom: -120px; transform: translateX(-50%); }
+.scheduler .viz-beam { width: 165px; height: 2px; right: -165px; top: 50%; transform: translateY(-50%) rotate(-30deg); transform-origin: left center;}
+.controller .viz-beam { width: 165px; height: 2px; left: -165px; top: 50%; transform: translateY(-50%) rotate(30deg); transform-origin: right center;}
 
 .viz-beam::after {
   content: ''; position: absolute; width: 6px; height: 6px; background: var(--k8s-blue);
