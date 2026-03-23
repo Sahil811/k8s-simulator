@@ -17,6 +17,7 @@ import { KubectlTerminalModule } from './modules/KubectlTerminalModule';
 import { useSimulator } from './store/simulatorStore';
 import { ConceptCard, registerConceptCardOpener } from './components/ConceptCard';
 import { AchievementToastContainer } from './components/AchievementToast';
+import { XRayOverlay } from './components/XRayOverlay';
 
 export function App() {
   const { activeModule, startLoop } = useSimulator();
@@ -54,6 +55,7 @@ export function App() {
       <EventsPanel />
       <WhyPanel />
       <AchievementToastContainer />
+      <XRayOverlay />
       {openConceptId && (
         <ConceptCard conceptId={openConceptId} onClose={() => setOpenConceptId(null)} />
       )}

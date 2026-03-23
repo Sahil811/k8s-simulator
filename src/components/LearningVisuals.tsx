@@ -1,35 +1,87 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { sounds } from '../utils/audio';
 
 export function WorkloadsMap() {
+  const [pods, setPods] = useState([true, true, true]); // true = alive
+  const [recovering, setRecovering] = useState<number | null>(null);
+
+  const killPod = (index: number) => {
+    if (!pods[index]) return;
+    sounds.playError();
+    const newPods = [...pods];
+    newPods[index] = false;
+    setPods(newPods);
+    setRecovering(index);
+
+    // ReplicaSet automatically recovers it after 1.5s
+    setTimeout(() => {
+      sounds.playPop();
+      setPods(prev => {
+        const p = [...prev];
+        p[index] = true;
+        return p;
+      });
+      setRecovering(null);
+    }, 1500);
+  };
+
   return (
     <div className="learning-visual">
-      <div className="viz-box viz-blue" style={{ width: '100%' }}>
+      <div className="viz-box viz-blue" style={{ width: '100%', marginBottom: 8 }}>
         <div style={{ fontSize: 10, opacity: 0.7 }}>Deployment</div>
         <div>my-app</div>
       </div>
       <div className="viz-arrow">↓</div>
-      <div className="viz-box viz-purple" style={{ width: '100%' }}>
+      <div className={`viz-box viz-purple ${recovering !== null ? 'viz-pulse-fast' : ''}`} style={{ width: '100%', marginBottom: 8, borderColor: recovering !== null ? 'var(--k8s-red)' : '' }}>
         <div style={{ fontSize: 10, opacity: 0.7 }}>ReplicaSet</div>
         <div>my-app-7b9c5</div>
-        <div style={{ fontSize: 9, marginTop: 4 }}>Desired: 3 | Current: 3</div>
+        <div style={{ fontSize: 9, marginTop: 4, color: recovering !== null ? 'var(--k8s-red)' : '' }}>
+          Desired: 3 | Current: {pods.filter(Boolean).length}
+        </div>
       </div>
       <div className="viz-arrow">↓</div>
       <div style={{ display: 'flex', gap: 12, justifyContent: 'space-between', width: '100%' }}>
-        <div className="viz-box viz-cyan viz-pulse" style={{ flex: 1, padding: '12px 8px' }}>Pod 1</div>
-        <div className="viz-box viz-cyan viz-pulse" style={{ flex: 1, padding: '12px 8px', animationDelay: '300ms' }}>Pod 2</div>
-        <div className="viz-box viz-cyan viz-pulse" style={{ flex: 1, padding: '12px 8px', animationDelay: '600ms' }}>Pod 3</div>
+        {[0, 1, 2].map(i => (
+          <div 
+            key={i}
+            onClick={() => killPod(i)}
+            className={`viz-box viz-cyan ${pods[i] ? 'viz-interactive viz-pulse' : 'viz-dead'}`} 
+            style={{ flex: 1, padding: '12px 0', cursor: pods[i] ? 'crosshair' : 'wait', opacity: pods[i] ? 1 : 0.3 }}
+          >
+            <div style={{ fontSize: 9 }}>{pods[i] ? `Pod ${i+1}` : 'DEAD'}</div>
+            {pods[i] && <div className="viz-kill-btn">KILL</div>}
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)' }}>
+        🎯 Click a Pod to kill it.
       </div>
     </div>
   );
 }
 
 export function NetworkingMap() {
+  const [traffic, setTraffic] = useState<number[]>([]);
+  const [activePod, setActivePod] = useState<number | null>(null);
+
+  const sendRequest = () => {
+    sounds.playLightClick();
+    const podId = Math.floor(Math.random() * 3);
+    setTraffic(prev => [...prev, podId]);
+    setTimeout(() => {
+      setActivePod(podId);
+      setTimeout(() => setActivePod(null), 800);
+      setTraffic(prev => prev.slice(1));
+    }, 1000); // matches CSS animation duration roughly
+  };
+
   return (
     <div className="learning-visual">
-      <div className="viz-user">👤 User</div>
+      <button className="viz-action-btn" onClick={sendRequest}>+ Send Request</button>
       <div className="viz-traffic-line">
-        <div className="viz-dot"></div>
-        <div className="viz-dot" style={{ animationDelay: '1s' }}></div>
+        {traffic.map((podId, i) => (
+          <div key={i} className={`viz-dot routing-to-${podId}`} style={{ animation: 'trafficDrop 1s linear forwards' }}></div>
+        ))}
       </div>
       <div className="viz-box viz-teal" style={{ width: '100%', zIndex: 2 }}>
         <div style={{ fontSize: 10, opacity: 0.7 }}>Service (Load Balancer)</div>
@@ -40,9 +92,15 @@ export function NetworkingMap() {
         <div className="viz-split-line left"></div>
         <div className="viz-split-line center"></div>
         <div className="viz-split-line right"></div>
-        <div className="viz-box viz-cyan" style={{ flex: 1, opacity: 0.8, padding: '6px' }}><div style={{ fontSize: 9 }}>Pod 1</div></div>
-        <div className="viz-box viz-cyan" style={{ flex: 1, opacity: 0.8, padding: '6px' }}><div style={{ fontSize: 9 }}>Pod 2</div></div>
-        <div className="viz-box viz-cyan" style={{ flex: 1, opacity: 0.8, padding: '6px' }}><div style={{ fontSize: 9 }}>Pod 3</div></div>
+        {[0, 1, 2].map(i => (
+          <div 
+            key={i} 
+            className={`viz-box viz-cyan ${activePod === i ? 'viz-flash' : ''}`} 
+            style={{ flex: 1, padding: '6px', opacity: activePod === i ? 1 : 0.6 }}
+          >
+            <div style={{ fontSize: 9 }}>Pod {i+1}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -51,7 +109,7 @@ export function NetworkingMap() {
 export function StorageMap() {
   return (
     <div className="learning-visual">
-      <div className="viz-box viz-cyan" style={{ width: '100%', zIndex: 2 }}>
+      <div className="viz-box viz-cyan viz-pulse" style={{ width: '100%', zIndex: 2 }}>
         <div style={{ fontSize: 10, opacity: 0.7 }}>Pod (Database)</div>
         <div>mysql-0</div>
       </div>
@@ -68,30 +126,48 @@ export function StorageMap() {
 }
 
 export function ScalingMap() {
+  const [cpu, setCpu] = useState(30);
+
   return (
-    <div className="learning-visual">
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-        <div className="viz-cpu-chart">
-          <div className="viz-cpu-bar bar-1"></div>
-          <div className="viz-cpu-bar bar-2"></div>
-          <div className="viz-cpu-bar bar-3"></div>
-          <div className="viz-cpu-bar bar-4"></div>
-          <div className="viz-cpu-bar bar-5"></div>
+    <div className="learning-visual" style={{ width: '100%' }}>
+      <div style={{ marginBottom: 16, width: '100%', textAlign: 'center' }}>
+        <input 
+          type="range" 
+          min="10" 
+          max="100" 
+          value={cpu} 
+          onChange={(e) => {
+            const newCpu = Number(e.target.value);
+            if (newCpu > 80 && cpu <= 80) sounds.playPop();
+            setCpu(newCpu);
+          }}
+          className="viz-slider"
+        />
+        <div style={{ fontSize: 12, marginTop: 4, color: cpu > 80 ? 'var(--k8s-red)' : 'var(--k8s-green)' }}>
+          Simulated CPU: {cpu}%
         </div>
       </div>
       
-      <div className="viz-box viz-green" style={{ width: '100%', zIndex: 2 }}>
+      <div className={`viz-box viz-green ${cpu > 80 ? 'viz-alert' : ''}`} style={{ width: '100%', zIndex: 2 }}>
         <div style={{ fontSize: 10, opacity: 0.7 }}>HorizontalPodAutoscaler</div>
-        <div>CPU &gt; 80% → Scale Up</div>
+        <div>Target: 80% | Action: {cpu > 80 ? 'SCALE UP' : 'OK'}</div>
       </div>
       
       <div className="viz-arrow">↓</div>
       
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', width: '100%' }}>
         <div className="viz-box viz-cyan" style={{ width: '45%', padding: '8px' }}><div style={{ fontSize: 9 }}>Pod 1</div></div>
         <div className="viz-box viz-cyan" style={{ width: '45%', padding: '8px' }}><div style={{ fontSize: 9 }}>Pod 2</div></div>
-        <div className="viz-box viz-cyan viz-ghost" style={{ width: '45%', padding: '8px' }}><div style={{ fontSize: 9 }}>Pod 3 (New)</div></div>
-        <div className="viz-box viz-cyan viz-ghost" style={{ width: '45%', padding: '8px', animationDelay: '500ms' }}><div style={{ fontSize: 9 }}>Pod 4 (New)</div></div>
+        
+        {cpu > 80 && (
+          <>
+            <div className="viz-box viz-cyan viz-ghost" style={{ width: '45%', padding: '8px' }}><div style={{ fontSize: 9 }}>Pod 3 (New)</div></div>
+            <div className="viz-box viz-cyan viz-ghost" style={{ width: '45%', padding: '8px', animationDelay: '500ms' }}><div style={{ fontSize: 9 }}>Pod 4 (New)</div></div>
+          </>
+        )}
+      </div>
+      <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+        🎯 Drag the CPU slider past 80%
       </div>
     </div>
   );
@@ -101,7 +177,7 @@ export function ControlPlaneMap() {
   return (
     <div className="learning-visual control-plane-viz">
       <div className="viz-hub">
-        <div className="viz-box viz-blue api-server">
+        <div className="viz-box viz-blue api-server viz-pulse">
           <div style={{ fontSize: 10, opacity: 0.7 }}>API Server</div>
           <div>kube-apiserver</div>
         </div>

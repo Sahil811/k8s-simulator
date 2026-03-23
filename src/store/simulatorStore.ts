@@ -9,6 +9,7 @@ interface SimulatorStore {
   explanations: ExplanationEntry[];
   running: boolean;
   tickRate: number; // ms
+  xrayMode: boolean;
   activeModule: string;
   activeScenario: Scenario | null;
   scenarioMode: 'guided' | 'challenge' | 'sandbox';
@@ -22,6 +23,7 @@ interface SimulatorStore {
   startLoop: () => void;
   stopLoop: () => void;
   tick: () => void;
+  toggleXrayMode: () => void;
   setModule: (module: string) => void;
   loadScenario: (id: ScenarioId) => void;
   exitScenario: () => void;
@@ -62,6 +64,7 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
   explanations: [],
   running: false,
   tickRate: 500,
+  xrayMode: false,
   activeModule: 'learningpath',
   activeScenario: null,
   scenarioMode: 'sandbox',
@@ -89,6 +92,8 @@ export const useSimulator = create<SimulatorStore>((set, get) => ({
     if (s.historyIndex !== null) return;
     worker.postMessage({ state: s.cluster, cpuSimulation: s.cpuSimulation });
   },
+
+  toggleXrayMode: () => set((state) => ({ xrayMode: !state.xrayMode })),
 
   setModule: (module) => set({ activeModule: module }),
 

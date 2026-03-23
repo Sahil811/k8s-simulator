@@ -3,7 +3,7 @@ import { useSimulator } from '../store/simulatorStore';
 import { TimeTravelBar } from './TimeTravelBar';
 
 export function Header() {
-  const { cluster, running, startLoop, stopLoop, reset, tick, activeScenario, exitScenario } = useSimulator();
+  const { cluster, running, startLoop, stopLoop, reset, tick, activeScenario, exitScenario, xrayMode, toggleXrayMode } = useSimulator();
 
   const warnings = cluster.events.filter(e => e.type === 'Warning').length;
 
@@ -85,6 +85,17 @@ export function Header() {
         onClick={reset}
       >
         ↺ Reset
+      </button>
+
+      <div style={{ width: 1, height: 24, background: 'var(--border-subtle)', margin: '0 4px' }} />
+
+      <button
+        onClick={toggleXrayMode}
+        className={`header-btn ${xrayMode ? 'active' : ''}`}
+        style={{ color: xrayMode ? 'var(--k8s-green)' : 'inherit', borderColor: xrayMode ? 'var(--k8s-green)' : 'transparent', background: xrayMode ? 'rgba(34, 197, 94, 0.1)' : '' }}
+        title="Toggle Matrix X-Ray View"
+      >
+        {xrayMode ? '💊 Matrix: ON' : '👁️ Matrix: OFF'}
       </button>
     </header>
   );
