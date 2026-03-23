@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSimulator } from '../store/simulatorStore';
+import { TimeTravelBar } from './TimeTravelBar';
 
 export function Header() {
   const { cluster, running, startLoop, stopLoop, reset, tick, activeScenario, exitScenario } = useSimulator();
@@ -35,6 +36,8 @@ export function Header() {
         </div>
       )}
 
+      <div className="header-spacer" />
+      <TimeTravelBar />
       <div className="header-spacer" />
 
       {warnings > 0 && (

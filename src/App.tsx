@@ -4,7 +4,6 @@ import { Sidebar } from './components/Sidebar';
 import { EventsPanel } from './components/EventsPanel';
 import { WhyPanel } from './components/WhyPanel';
 import { OverviewModule } from './modules/OverviewModule';
-import { TimeTravelBar } from './components/TimeTravelBar';
 import { ControlPlaneModule } from './modules/ControlPlaneModule';
 import { WorkloadsModule } from './modules/WorkloadsModule';
 import { NetworkingModule } from './modules/NetworkingModule';
@@ -48,7 +47,6 @@ export function App() {
       </main>
       <EventsPanel />
       <WhyPanel />
-      <TimeTravelBar />
     </div>
   );
 }

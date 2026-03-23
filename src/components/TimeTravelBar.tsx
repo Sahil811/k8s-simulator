@@ -1,3 +1,4 @@
+import React from 'react';
 import { useSimulator } from '../store/simulatorStore';
 
 export function TimeTravelBar() {
@@ -11,49 +12,76 @@ export function TimeTravelBar() {
   return (
     <div 
       style={{
-        position: 'fixed', bottom: 20, right: 340, left: 'auto', transform: 'none',
-        background: 'var(--bg-elevated)', border: `1px solid ${isLive ? 'var(--border-default)' : 'var(--k8s-yellow)'}`,
-        borderRadius: 'var(--radius-lg)', padding: '10px 16px',
-        display: 'flex', alignItems: 'center', gap: 16, zIndex: 9999,
-        boxShadow: isLive ? '0 4px 24px rgba(0,0,0,0.6)' : '0 0 20px rgba(234, 179, 8, 0.2)',
-        minWidth: 350,
-        backdropFilter: 'blur(10px)',
-        animation: 'fadeInUp 0.3s ease',
-        opacity: isLive ? 0.25 : 1,
-        transition: 'all 0.2s ease',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+        padding: '4px 12px',
+        borderRadius: 'var(--radius-md)',
+        background: isLive ? 'rgba(255, 255, 255, 0.02)' : 'rgba(234, 179, 8, 0.1)',
+        border: `1px solid ${isLive ? 'var(--border-subtle)' : 'rgba(234, 179, 8, 0.3)'}`,
+        transition: 'all var(--transition-base)',
+        minWidth: '300px',
+        maxWidth: '450px',
+        flex: 1,
       }}
-      onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-      onMouseLeave={e => e.currentTarget.style.opacity = isLive ? '0.25' : '1'}
     >
-      <div style={{ display: 'flex', alignItems: 'center' }}>
-        <button 
-          className={`btn ${isLive ? '' : 'btn-primary'}`}
-          onClick={() => setTimeTravel(null)}
-          style={{ padding: '6px 12px', fontSize: 12, fontWeight: 700, width: 120, justifyContent: 'center' }}
-        >
-          {isLive ? '🟢 LIVE' : '▶️ RESUME LIVE'}
-        </button>
+      <button 
+        className={isLive ? 'header-btn' : 'header-btn active'}
+        onClick={() => setTimeTravel(null)}
+        style={{
+          padding: '2px 8px',
+          fontSize: '10px',
+          fontWeight: 700,
+          border: 'none',
+          background: isLive ? 'transparent' : 'var(--k8s-yellow)',
+          color: isLive ? 'var(--k8s-green)' : 'var(--bg-base)',
+          whiteSpace: 'nowrap',
+          borderRadius: '4px',
+        }}
+        title="Resume live simulation"
+      >
+        {isLive ? '🟢 LIVE' : '▶️ RESUME'}
+      </button>
+
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
+        <input 
+          type="range" 
+          min={0} 
+          max={history.length - 1} 
+          value={currentIndex}
+          onChange={(e) => {
+            const val = Number(e.target.value);
+            if (val === history.length - 1) {
+              setTimeTravel(null);
+            } else {
+              setTimeTravel(val);
+            }
+          }}
+          style={{ 
+            width: '100%', 
+            cursor: 'ew-resize',
+            accentColor: isLive ? 'var(--k8s-blue)' : 'var(--k8s-yellow)',
+            height: '4px',
+          }}
+          title={`Scrub history (Tick ${history[currentIndex]?.tick || 0})`}
+        />
       </div>
 
-      <input 
-        type="range" 
-        min={0} 
-        max={history.length - 1} 
-        value={currentIndex}
-        onChange={(e) => {
-          const val = Number(e.target.value);
-          if (val === history.length - 1) {
-            setTimeTravel(null);
-          } else {
-            setTimeTravel(val);
-          }
-        }}
-        style={{ flex: 1, cursor: 'ew-resize' }}
-      />
-
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: isLive ? 'var(--text-muted)' : 'var(--k8s-yellow)', minWidth: 100, textAlign: 'right' }}>
-        Tick {cluster.tick}
-        {!isLive && <div style={{ fontSize: 9, marginTop: 2, letterSpacing: '1px' }}>TIME TRAVELING</div>}
+      <div style={{ 
+        fontFamily: 'var(--font-mono)', 
+        fontSize: '11px', 
+        color: isLive ? 'var(--text-muted)' : 'var(--k8s-yellow)', 
+        minWidth: '65px', 
+        textAlign: 'right',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        lineHeight: 1.2
+      }}>
+        <span style={{ fontWeight: isLive ? 400 : 700 }}>
+          {isLive ? 'Latest' : `T - ${history.length - 1 - currentIndex}`}
+        </span>
+        {!isLive && <span style={{ fontSize: '8px', letterSpacing: '0.5px' }}>TIME TRAVEL</span>}
       </div>
     </div>
   );
