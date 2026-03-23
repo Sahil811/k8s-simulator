@@ -44,9 +44,10 @@ export function Sidebar() {
   }
 
   return (
-    <nav className="sidebar" role="navigation" aria-label="Module navigation">
-      <div className="sidebar-section">Modules</div>
-      {MODULES.map(m => {
+    <nav className="sidebar" role="navigation" aria-label="Module navigation" style={{ overflow: 'hidden' }}>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="sidebar-section" style={{ paddingTop: 12 }}>Modules</div>
+        {MODULES.map(m => {
         const badge = getBadge(m.id);
         return (
           <div
@@ -93,7 +94,8 @@ export function Sidebar() {
           </div>
         </>
       )}
-      <div style={{ marginTop: 'auto' }}>
+      </div>
+      <div style={{ marginTop: 'auto', flexShrink: 0 }}>
         <ProgressPanel />
       </div>
     </nav>

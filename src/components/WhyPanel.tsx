@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSimulator } from '../store/simulatorStore';
+import { ConceptLink } from './ConceptLink';
 import type { ExplanationEntry } from '../types/k8s';
 
 export function WhyPanel() {
@@ -10,6 +11,16 @@ export function WhyPanel() {
   if (visible.length === 0) return null;
 
   const entry = visible[0];
+
+  // Map controllers to concepts
+  const conceptMap: Record<string, string> = {
+    'DeploymentController': 'controllers',
+    'ReplicaSetController': 'pods',
+    'Scheduler': 'scheduling',
+    'Kubelet': 'pods',
+    'EndpointSliceController': 'services',
+  };
+  const conceptId = conceptMap[entry.controller];
 
   return (
     <div className="why-panel" role="dialog" aria-label="Why is this happening?">
@@ -44,6 +55,12 @@ export function WhyPanel() {
           }}>{entry.objectKind}</span>
           {entry.objectName}
         </div>
+
+        {conceptId && (
+          <div style={{ marginBottom: 12 }}>
+            <ConceptLink id={conceptId} />
+          </div>
+        )}
 
         <ExplanationSection label="What happened" text={entry.what} />
         <ExplanationSection label="Action taken" text={entry.action} cls="why-action" />
