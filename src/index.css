@@ -2098,3 +2098,154 @@ body {
   transform: translateY(-1px);
   filter: brightness(1.1);
 }
+
+/* ===== LEARNING PATH VISUALIZATIONS ===== */
+.phase-content {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+}
+
+.phase-text-panel {
+  flex: 1;
+  min-width: 300px;
+}
+
+.phase-visual-panel {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 300px;
+  padding: 24px;
+  background: rgba(0,0,0,0.15);
+  border-radius: var(--radius-lg);
+  border: 1px inset rgba(255,255,255,0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+.learning-visual {
+  width: 100%;
+  max-width: 250px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-mono);
+  color: white;
+}
+
+.viz-box {
+  border-radius: var(--radius-md);
+  padding: 12px;
+  text-align: center;
+  font-weight: 700;
+  border: 1px solid;
+  position: relative;
+}
+
+.viz-blue { background: rgba(79, 128, 255, 0.15); border-color: var(--k8s-blue); box-shadow: 0 0 10px rgba(79,128,255,0.2); }
+.viz-cyan { background: rgba(0, 212, 255, 0.15); border-color: var(--k8s-cyan); box-shadow: 0 0 10px rgba(0,212,255,0.2); }
+.viz-teal { background: rgba(0, 180, 204, 0.15); border-color: var(--k8s-teal); box-shadow: 0 0 10px rgba(0,180,204,0.2); }
+.viz-green { background: rgba(34, 197, 94, 0.15); border-color: var(--k8s-green); box-shadow: 0 0 10px rgba(34,197,94,0.2); }
+.viz-purple { background: rgba(168, 85, 247, 0.15); border-color: var(--k8s-purple); box-shadow: 0 0 10px rgba(168,85,247,0.2); }
+.viz-orange { background: rgba(249, 115, 22, 0.15); border-color: var(--k8s-orange); box-shadow: 0 0 10px rgba(249,115,22,0.2); }
+.viz-yellow { background: rgba(234, 179, 8, 0.15); border-color: var(--k8s-yellow); box-shadow: 0 0 10px rgba(234,179,8,0.2); }
+
+.viz-arrow {
+  color: var(--text-muted);
+  font-size: 20px;
+  margin: 8px 0;
+  animation: bounceDown 2s infinite;
+}
+
+@keyframes bounceDown { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+
+/* Workloads */
+.viz-pulse {
+  animation: heartBeat 2s infinite;
+}
+@keyframes heartBeat {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.05); filter: brightness(1.2); box-shadow: 0 0 15px var(--k8s-cyan); }
+}
+
+/* Networking */
+.viz-user { margin-bottom: 12px; font-size: 24px; }
+.viz-traffic-line { height: 30px; width: 2px; background: rgba(255,255,255,0.1); position: relative; }
+.viz-dot {
+  position: absolute; width: 6px; height: 6px; background: var(--k8s-cyan);
+  border-radius: 50%; left: -2px; top: 0; box-shadow: 0 0 8px var(--k8s-cyan);
+  animation: trafficDrop 2s infinite linear;
+}
+@keyframes trafficDrop { 0% { top: 0; opacity: 1; } 100% { top: 100%; opacity: 0; } }
+
+.viz-split-line {
+  position: absolute; top: -20px; height: 20px; border-top: 1px dotted rgba(255,255,255,0.3);
+}
+.viz-split-line.left { left: 16%; width: 34%; border-left: 1px dotted rgba(255,255,255,0.3); }
+.viz-split-line.center { left: 50%; width: 0; border-left: 1px dotted rgba(255,255,255,0.3); }
+.viz-split-line.right { right: 16%; width: 34%; border-right: 1px dotted rgba(255,255,255,0.3); }
+
+/* Storage */
+.viz-cable {
+  height: 40px; width: 8px; background: #333; border-left: 2px solid #555; border-right: 2px solid #555;
+  position: relative; overflow: hidden;
+}
+.viz-data-flow {
+  position: absolute; width: 100%; height: 10px; background: var(--k8s-yellow);
+  box-shadow: 0 0 10px var(--k8s-yellow); animation: trafficDrop 1.5s infinite linear;
+}
+
+/* Scaling */
+.viz-cpu-chart { display: flex; gap: 4px; align-items: flex-end; height: 40px; }
+.viz-cpu-bar { width: 12px; background: var(--k8s-green); border-radius: 2px 2px 0 0; }
+.viz-cpu-bar.bar-1 { height: 20%; }
+.viz-cpu-bar.bar-2 { height: 30%; }
+.viz-cpu-bar.bar-3 { height: 50%; animation: cpuSpike 3s infinite; background: var(--k8s-yellow); }
+.viz-cpu-bar.bar-4 { height: 80%; animation: cpuSpike2 3s infinite; background: var(--k8s-red); }
+.viz-cpu-bar.bar-5 { height: 90%; animation: cpuSpike3 3s infinite; background: var(--k8s-red); }
+
+@keyframes cpuSpike { 0%, 100% { height: 20%; background: var(--k8s-green); } 50% { height: 50%; background: var(--k8s-yellow); } }
+@keyframes cpuSpike2 { 0%, 100% { height: 20%; background: var(--k8s-green); } 50% { height: 80%; background: var(--k8s-red); } }
+@keyframes cpuSpike3 { 0%, 100% { height: 20%; background: var(--k8s-green); } 50% { height: 95%; background: var(--k8s-red); box-shadow: 0 0 10px var(--k8s-red); } }
+
+.viz-ghost { border-style: dashed; opacity: 0.5; animation: materialize 3s infinite; }
+@keyframes materialize {
+  0%, 40% { opacity: 0; transform: scale(0.8); }
+  50%, 90% { opacity: 1; transform: scale(1); border-style: solid; box-shadow: 0 0 10px var(--k8s-cyan); }
+  100% { opacity: 0; transform: scale(0.8); }
+}
+
+/* Control Plane */
+.control-plane-viz { position: relative; height: 200px; justify-content: center; }
+.viz-hub { position: relative; width: 200px; height: 200px; }
+.api-server { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; width: 100px; }
+.viz-spoke { position: absolute; width: 60px; }
+.viz-spoke.etcd { top: 0; left: 50%; transform: translateX(-50%); }
+.viz-spoke.scheduler { bottom: 10%; left: 0; }
+.viz-spoke.controller { bottom: 10%; right: 0; }
+
+.viz-beam {
+  position: absolute; background: rgba(255,255,255,0.2);
+}
+.etcd .viz-beam { width: 2px; height: 40px; left: 50%; bottom: -40px; transform: translateX(-50%); }
+.scheduler .viz-beam { width: 45px; height: 2px; right: -45px; top: 50%; transform: translateY(-50%) rotate(-30deg); transform-origin: left center;}
+.controller .viz-beam { width: 45px; height: 2px; left: -45px; top: 50%; transform: translateY(-50%) rotate(30deg); transform-origin: right center;}
+
+.viz-beam::after {
+  content: ''; position: absolute; width: 6px; height: 6px; background: var(--k8s-blue);
+  border-radius: 50%; box-shadow: 0 0 8px var(--k8s-blue);
+  animation: beamFlow 2s infinite linear;
+}
+.etcd .viz-beam::after { left: -2px; animation-name: trafficDrop; }
+.scheduler .viz-beam::after { top: -2px; animation-name: beamFlow; }
+.controller .viz-beam::after { top: -2px; animation-name: beamFlowRev; }
+
+@keyframes beamFlow { 0% { left: 0; opacity: 1; } 100% { left: 100%; opacity: 0; } }
+@keyframes beamFlowRev { 0% { right: 0; opacity: 1; } 100% { right: 100%; opacity: 0; } }
+
+@media (max-width: 900px) {
+  .phase-content { flex-direction: column; }
+  .phase-visual-panel { width: 100%; }
+}
